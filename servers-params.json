@@ -1,0 +1,22 @@
+[
+	{
+		"ParameterKey": "EnvironmentName",
+		"ParameterValue": "Udagram-UdacityProject"
+	},
+    {
+        "ParameterKey": "AMIid",
+        "ParameterValue": "ami-03f65b8614a860c29"
+    },
+	{
+		"ParameterKey": "VpcCIDR",
+		"ParameterValue": "10.0.0.0/16"
+	},
+	{
+		"ParameterKey": "KeyPairName",
+		"ParameterValue": "jumpbox-keypair"
+	},
+	{
+		"ParameterKey": "BastionCIDR",
+		"ParameterValue": "10.0.0.0/16"
+	}
+]

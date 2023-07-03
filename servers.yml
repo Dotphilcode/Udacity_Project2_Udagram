@@ -1,0 +1,267 @@
+Description: >
+    This is part of the Capstone project for the CloudFormation module. 
+    This project deploys a highly available web app on AWS cloud using AWS CloudFormation.
+    This servers stack is the second stack out of two and should be run second on AWS CLI.
+
+Parameters:
+
+    EnvironmentName:
+        Description: An environment name that will be prefixed to resource names
+        Type: String
+    
+    AMIid:
+        Description: AMI ID of Ubuntu Linux machine. AMI IDs are region-specific. To get one, try creating a VM from the web console.        
+        Type: String
+
+    VpcCIDR: 
+        Description: Enter the IP range (CIDR notation) for this VPC
+        Type: String
+        Default: 10.0.0.0/16
+
+    KeyPairName:
+        Description: The name of the Key Pair that you created for Bastion Host. This keypair must be created in the same region where your stack is launched.
+        Type: String
+
+    BastionCIDR:
+        Description: Enter the IP address or IP range (CIDR notation) that you want to have access the Bastion Host/Jumpbox
+        Type: String
+        Default: "!Ref VpcCIDR"
+
+Resources:
+
+  LBSecGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow http to our load balancer
+      VpcId:
+        Fn::ImportValue:
+          !Sub "${EnvironmentName}-VPCID"
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0 
+      SecurityGroupEgress:
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: !Ref VpcCIDR
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-Load Balancer Sec Group
+
+  WebServerSecGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow http to our hosts and SSH from local only
+      VpcId:
+        Fn::ImportValue:
+          !Sub "${EnvironmentName}-VPCID"
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: !Ref VpcCIDR
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: !Ref VpcCIDR
+      SecurityGroupEgress:
+      - IpProtocol: tcp
+        FromPort: 0
+        ToPort: 65535
+        CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-WebServer Sec Group
+
+  BastionHostSecGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSH from your computer only
+      VpcId:
+        Fn::ImportValue:
+          !Sub "${EnvironmentName}-VPCID"
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: !Ref BastionCIDR
+      SecurityGroupEgress:
+      - IpProtocol: tcp
+        FromPort: 0
+        ToPort: 65535
+        CidrIp: !Ref VpcCIDR
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-BastionHost Sec Group 
+
+  EC2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: EC2InstanceRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref EC2InstanceRole
+  
+  # Bucket that can be used for storing application Archives 
+  AppS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: "apps3bckt-xzybckt"
+      
+  WebAppLaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          sudo apt-get update -y
+          sudo apt-get install apache2 -y
+          sudo systemctl start apache2.service
+          cd /var/www/html
+          echo "Udacity Demo Web Server Up and Running!" > index.html
+      ImageId: !Ref AMIid
+      # KeyName: !Ref KeyPairName
+      SecurityGroups:
+      - Ref: WebServerSecGroup
+      InstanceType: t2.medium
+      IamInstanceProfile: !Ref EC2InstanceProfile
+      BlockDeviceMappings:
+      - DeviceName: "/dev/sdk"
+        Ebs:
+          VolumeSize: '10'
+
+  WebAppASGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier:
+      - Fn::ImportValue:
+      ## To test the application and make sure that only the LB can be reached and not individual servers, run webpage in the public subnets
+          !Sub "${EnvironmentName}-PRIV-NETS"
+          # !Sub "${EnvironmentName}-PUB-NETS"
+      LaunchConfigurationName:
+        Ref: WebAppLaunchConfig
+      MinSize: '4'
+      MaxSize: '4'
+      TargetGroupARNs:
+      - Ref: WebAppTargetGroup
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-Web App ASG
+          PropagateAtLaunch: true
+
+  WebAppLB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Subnets:
+      - Fn::ImportValue: !Sub "${EnvironmentName}-PUB1-SN"
+      - Fn::ImportValue: !Sub "${EnvironmentName}-PUB2-SN"
+      SecurityGroups:
+      - Ref: LBSecGroup 
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-Web App LB
+
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+      - Type: forward
+        TargetGroupArn:
+          Ref: WebAppTargetGroup
+      LoadBalancerArn:
+        Ref: WebAppLB
+      Port: '80'
+      Protocol: HTTP
+
+  ALBListenerRule:
+      Type: AWS::ElasticLoadBalancingV2::ListenerRule
+      Properties:
+        Actions:
+        - Type: forward
+          TargetGroupArn: !Ref 'WebAppTargetGroup'
+        Conditions:
+        - Field: path-pattern
+          Values: [/]
+        ListenerArn: !Ref Listener
+        Priority: 1
+
+  WebAppTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 15
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 2
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 5
+      VpcId: 
+        Fn::ImportValue:
+          !Sub "${EnvironmentName}-VPCID"
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-Web App Target Group
+
+  # Bastion Host/Jumpbox server
+  BastionHost:
+    Type: AWS::EC2::Instance
+    Properties:    
+      ImageId: !Ref AMIid
+      KeyName: !Ref KeyPairName
+      InstanceType: t2.micro
+      NetworkInterfaces: 
+        - AssociatePublicIpAddress: "true"
+          DeviceIndex: "0"
+          GroupSet:
+            - !Ref BastionHostSecGroup
+          SubnetId:
+            Fn::ImportValue:
+              !Sub ${EnvironmentName}-PUB1-SN 
+      BlockDeviceMappings:
+      - DeviceName: "/dev/sdk"
+        Ebs:
+          VolumeSize: '8'
+      Tags: 
+          - Key: Name
+            Value: !Sub ${EnvironmentName} Jumpbox-BastionHost
+
+Outputs:
+  LoadBalancerDNS:
+    Description: The DNS of the Load Balancer
+    Value: !Join [ "//", ["http:", !GetAtt WebAppLB.DNSName]]
+    Export:
+      Name: !Sub ${EnvironmentName}-Load-Balancer-DNS
+
+  WebAppLoadBalancer:
+    Description: The Load Balancer
+    Value: !Ref WebAppLB
+    Export:
+      Name: !Sub ${EnvironmentName}-WebApp-Load-Balancer
+
+  TargetGroup:
+    Description: The Web App Target Group
+    Value: !Ref WebAppTargetGroup
+    Export:
+      Name: !Sub ${EnvironmentName}-WebAppTargetGroup
+
+  BastionHostIP:
+    Description: The Public IP of the Bastion Host
+    Value: !GetAtt BastionHost.PublicIp
+    Export:
+      Name: !Sub ${EnvironmentName}-BastionHostIP
