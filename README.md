@@ -14,7 +14,7 @@ This is Project 2 of the Capstone project required to complete Cloud DevOps Engi
 
 **Project Requirements:**
 Server specs:
-- Create a Launch Configuration for your application servers in order to deploy four servers, two located in each of your private subnets. The launch configuration will be used by an auto-scaling group.
+- Create a Launch Template for your application servers in order to deploy four servers, two located in each of your private subnets. The launch Template will be used by an auto-scaling group.
 - Provision two vCPUs and at least 4GB of RAM. The Operating System to be used is Ubuntu 18. So, choose an Instance size and Machine Image (AMI) that best fits this spec.
 - Be sure to allocate at least 10GB of disk space so that you don't run into issues.
 
@@ -27,7 +27,7 @@ Security Groups and Roles:
 - One of the output exports of the CloudFormation script should be the public URL of the LoadBalancer. Bonus points if you add http:// in front of the load balancer DNS Name in the output, for convenience.
 
 Other Considerations
-- You can deploy your servers with an SSH Key into Public subnets while you are creating the script. This helps with troubleshooting. Once done, move them to your private subnets and remove the SSH Key from your Launch Configuration.
+- You can deploy your servers with an SSH Key into Public subnets while you are creating the script. This helps with troubleshooting. Once done, move them to your private subnets and remove the SSH Key from your Launch Template.
 - It also helps to test directly, without the load balancer. Once you are confident that your server is behaving correctly, increase the instance count and add the load balancer to your script.
 - While your instances are in public subnets, you'll also need the SSH port open (port 22) for your access, in case you need to troubleshoot your instances.
 - Log information for UserData scripts is located in this file: cloud-init-output.log under the folder: /var/log.
@@ -35,3 +35,6 @@ Other Considerations
 - The provided UserData script should help you install all the required dependencies. Bear in mind that this process takes several minutes to complete. Also, the application takes a few seconds to load. This information is crucial for the settings of your load balancer health check.
 - It's up to you to decide which values should be parameters and which you will hard-code in your script.
 - If you want to go the extra mile, set up a bastion host (jump box) to allow you to SSH into your private subnet servers. This bastion host would be on a Public Subnet with port 22 open only to your home IP address, and it would need to have the private key that you use to access the other servers.
+
+**Output**
+Load Balancer DNS: http://stack-WebAp-1XPQT9NY67HN9-548049220.us-west-2.elb.amazonaws.com

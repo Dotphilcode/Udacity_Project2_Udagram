@@ -122,28 +122,31 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: "apps3bckt-xzybckt"
-      
-  WebAppLaunchConfig:
-    Type: AWS::AutoScaling::LaunchConfiguration
+
+  WebAppLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
     Properties:
-      UserData:
-        Fn::Base64: !Sub |
-          #!/bin/bash
-          sudo apt-get update -y
-          sudo apt-get install apache2 -y
-          sudo systemctl start apache2.service
-          cd /var/www/html
-          echo "Udacity Demo Web Server Up and Running!" > index.html
-      ImageId: !Ref AMIid
-      # KeyName: !Ref KeyPairName
-      SecurityGroups:
-      - Ref: WebServerSecGroup
-      InstanceType: t2.medium
-      IamInstanceProfile: !Ref EC2InstanceProfile
-      BlockDeviceMappings:
-      - DeviceName: "/dev/sdk"
-        Ebs:
-          VolumeSize: '10'
+      LaunchTemplateName: !Sub ${EnvironmentName}-Launch-Template
+      LaunchTemplateData:
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            sudo apt-get update -y
+            sudo apt-get install apache2 -y
+            sudo systemctl start apache2.service
+            cd /var/www/html
+            echo "Udacity Demo Web Server Up and Running!" > index.html
+        ImageId: !Ref AMIid
+        # KeyName: !Ref KeyPairName
+        SecurityGroupIds:
+        - !Ref WebServerSecGroup
+        InstanceType: t3.small
+        IamInstanceProfile:
+          Name: !Ref EC2InstanceProfile
+        BlockDeviceMappings:
+        - DeviceName: "/dev/sdk"
+          Ebs:
+            VolumeSize: '10'
 
   WebAppASGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
@@ -153,10 +156,12 @@ Resources:
       ## To test the application and make sure that only the LB can be reached and not individual servers, run webpage in the public subnets
           !Sub "${EnvironmentName}-PRIV-NETS"
           # !Sub "${EnvironmentName}-PUB-NETS"
-      LaunchConfigurationName:
-        Ref: WebAppLaunchConfig
+      LaunchTemplate:
+        LaunchTemplateId: !Ref WebAppLaunchTemplate
+        Version: !GetAtt WebAppLaunchTemplate.LatestVersionNumber
       MinSize: '4'
-      MaxSize: '4'
+      MaxSize: '6'
+      DesiredCapacity: '4'
       TargetGroupARNs:
       - Ref: WebAppTargetGroup
       Tags:
