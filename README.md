@@ -2,15 +2,18 @@
 **Background:**
 This is Project 2 of the Capstone project required to complete Cloud DevOps Engineer Nanodegree Program from Udacity
 
+
 **Scenario:**
 - Your company is creating an Instagram clone called Udagram. Developers want to deploy a new application to the AWS infrastructure.
 - You have been tasked with provisioning the required infrastructure and deploying a dummy application, along with the necessary supporting software.
 - This needs to be automated so that the infrastructure can be discarded as soon as the testing team finishes their tests and gathers their results.
 - Optional: To add more challenge to the project, once the project is completed, you can try deploying sample website files located in a public S3 Bucket to the Apache Web Server running on an EC2 instance.
-  
+
+
 **To Do:**
 - Develop a solution architect diagram as a visual aid to understand the CloudFormation script
 - Interprete the instructions in the diagram created and create a matching CloudFormation script
+
 
 **Project Requirements:**
 Server specs:
@@ -36,5 +39,17 @@ Other Considerations
 - It's up to you to decide which values should be parameters and which you will hard-code in your script.
 - If you want to go the extra mile, set up a bastion host (jump box) to allow you to SSH into your private subnet servers. This bastion host would be on a Public Subnet with port 22 open only to your home IP address, and it would need to have the private key that you use to access the other servers.
 
+
 **Output**
-Load Balancer DNS: http://stack-WebAp-1XPQT9NY67HN9-548049220.us-west-2.elb.amazonaws.com
+Example of Load Balancer DNS: http://stack-WebAp-1XPQT9NY67HN9-548049220.us-west-2.elb.amazonaws.com
+**Click on the URL above to visit the website launched**
+
+
+**How to run the code**
+- Ensure you have AWS CLI installed
+- To create stack, you need to provide three arguments; name of your stack, name of the file containing the stack definition, name of file containing the stack parameters.
+  For example; on your AWS CLI, run **bash create_stack.sh stack1 network.yml network-params.json** . To update the stack, **bash create_stack.sh stack1 network.yml network-params.json**
+- To update an already created stack, you need to provide three arguments; name of your stack, name of the file containing the stack definition, name of file containing the stack parameters.
+  For example; on your AWS CLI, run **bash create_stack.sh stack1 network.yml network-params.json**
+- To delete an already created stack, you need to provide one argument; name of your stack.
+  For example; on your AWS CLI, run **bash delete_stack.sh stack1**
